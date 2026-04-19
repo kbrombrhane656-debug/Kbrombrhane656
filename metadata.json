@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: GabeyaTrack",
+  "description": "A modern, offline-first financial tracking and business insight app designed for Ethiopian small business owners.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

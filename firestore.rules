@@ -1,0 +1,233 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.keys().size() >= 3 &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.createdAt is string;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['userId', 'amount', 'type', 'category', 'date', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.amount is number &&
+             data.type in ['income', 'expense', 'loan_given', 'loan_received', 'payment_received', 'payment_given'] &&
+             data.category is string && data.category.size() <= 100 &&
+             data.date is string &&
+             data.createdAt is string &&
+             (data.get('recurringFrequency', 'none') in ['none', 'daily', 'weekly', 'monthly', 'yearly']);
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['userId', 'name', 'type', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.type in ['income', 'expense', 'both', 'system'] &&
+             data.createdAt is string;
+    }
+
+    function isValidBudget(data) {
+      return data.keys().hasAll(['userId', 'category', 'amount', 'month', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.category is string &&
+             data.amount is number &&
+             data.month is string &&
+             data.createdAt is string;
+    }
+
+    function isValidPartner(data) {
+      return data.keys().hasAll(['userId', 'name', 'type', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.type in ['customer', 'supplier', 'both'] &&
+             data.createdAt is string;
+    }
+
+    function isValidLoan(data) {
+      return data.keys().hasAll(['userId', 'type', 'amount', 'remainingAmount', 'startDate', 'createdAt', 'status']) &&
+             data.userId == request.auth.uid &&
+             data.type in ['given', 'received'] &&
+             data.amount is number &&
+             data.remainingAmount is number &&
+             data.startDate is string &&
+             data.createdAt is string &&
+             data.status in ['active', 'paid_off'] &&
+             (data.get('taxRate', 0) is number) &&
+             (data.get('penaltyFee', 0) is number) &&
+             (data.get('isBankLoan', false) is bool);
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['userId', 'name', 'price', 'cost', 'stock', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 200 &&
+             data.price is number &&
+             data.cost is number &&
+             data.stock is number &&
+             data.createdAt is string;
+    }
+
+    function isValidStockMovement(data) {
+      return data.keys().hasAll(['userId', 'productId', 'type', 'quantity', 'date', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.productId is string &&
+             data.type in ['IN', 'OUT', 'ADJUST'] &&
+             data.quantity is number &&
+             data.date is string &&
+             data.createdAt is string;
+    }
+
+    function isValidEmployee(data) {
+      return data.keys().hasAll(['userId', 'name', 'role', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.role in ['admin', 'staff', 'viewer'] &&
+             data.status in ['active', 'inactive'] &&
+             data.createdAt is string;
+    }
+
+    function isValidCard(data) {
+      return data.keys().hasAll(['userId', 'name', 'balance', 'color', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.balance is number &&
+             data.color is string &&
+             data.createdAt is string;
+    }
+
+    // --- Path Routes ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'photoURL', 'businessType', 'setupCompleted']);
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidTransaction(incoming());
+      allow update: if isVerifiedUser() && isValidTransaction(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['amount', 'type', 'category', 'note', 'date', 'recurringFrequency', 'nextRecurringDate', 'recurringEndDate', 'isRecurringActive', 'partnerId', 'loanId', 'cardId', 'productId']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /categories/{categoryId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidCategory(incoming());
+      allow update: if isVerifiedUser() && isValidCategory(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'type', 'icon', 'color']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /budgets/{budgetId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidBudget(incoming());
+      allow update: if isVerifiedUser() && isValidBudget(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['category', 'amount', 'month']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /partners/{partnerId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidPartner(incoming());
+      allow update: if isVerifiedUser() && isValidPartner(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'type', 'phone']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /loans/{loanId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidLoan(incoming());
+      allow update: if isVerifiedUser() && isValidLoan(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    // Terminal State Lock: Cannot reactivate a paid loan
+                    (existing().status != 'paid_off' || incoming().status == 'paid_off') &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['partnerId', 'type', 'amount', 'remainingAmount', 'monthlyPayment', 'interest', 'startDate', 'durationMonths', 'status', 'paymentHistory', 'nextPaymentDate']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /products/{productId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidProduct(incoming());
+      allow update: if isVerifiedUser() && isValidProduct(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'sku', 'price', 'cost', 'stock']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /stockMovements/{movementId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidStockMovement(incoming());
+      allow update: if isVerifiedUser() && isValidStockMovement(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['productId', 'type', 'quantity', 'date', 'reason']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /employees/{employeeId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidEmployee(incoming());
+      allow update: if isVerifiedUser() && isValidEmployee(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'pin', 'status']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+
+    match /cards/{cardId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidCard(incoming());
+      allow update: if isVerifiedUser() && isValidCard(incoming()) && 
+                    incoming().userId == existing().userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'balance', 'color']);
+      allow delete: if isVerifiedUser() && existing().userId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the GabeyaTrack app.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "businessType": { "type": "string" },
+        "setupCompleted": { "type": "boolean" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction (income or expense).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense", "loan_given", "loan_received", "payment_received", "payment_given"] },
+        "category": { "type": "string" },
+        "note": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "recurringFrequency": { "type": "string", "enum": ["none", "daily", "weekly", "monthly", "yearly"] },
+        "nextRecurringDate": { "type": "string", "format": "date-time" },
+        "recurringEndDate": { "type": "string", "format": "date-time" },
+        "isRecurringActive": { "type": "boolean" },
+        "partnerId": { "type": "string" },
+        "loanId": { "type": "string" }
+      },
+      "required": ["userId", "amount", "type", "category", "date", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A category for transactions.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense", "both", "system"] },
+        "icon": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "type", "createdAt"]
+    },
+    "Budget": {
+      "title": "Budget",
+      "description": "A monthly budget limit for a category.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "month": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "amount", "month", "createdAt"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "A customer or supplier.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["customer", "supplier", "both"] },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "type", "createdAt"]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "A loan given or received.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "type": { "type": "string", "enum": ["given", "received"] },
+        "amount": { "type": "number" },
+        "remainingAmount": { "type": "number" },
+        "monthlyPayment": { "type": "number" },
+        "interest": { "type": "number" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "durationMonths": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "paid_off"] },
+        "taxRate": { "type": "number" },
+        "taxAmount": { "type": "number" },
+        "penaltyFee": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "loanPurpose": { "type": "string" },
+        "isBankLoan": { "type": "boolean" },
+        "paymentHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date-time" },
+              "amount": { "type": "number" }
+            },
+            "required": ["date", "amount"]
+          }
+        },
+        "nextPaymentDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "remainingAmount", "startDate", "createdAt", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A product in inventory.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "price": { "type": "number" },
+        "cost": { "type": "number" },
+        "stock": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "price", "cost", "stock", "createdAt"]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Movement of stock in or out.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productId": { "type": "string" },
+        "type": { "type": "string", "enum": ["IN", "OUT", "ADJUST"] },
+        "quantity": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productId", "type", "quantity", "date", "createdAt"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "An employee with access roles.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff", "viewer"] },
+        "pin": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "role", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles."
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "User transactions."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "User custom categories."
+    },
+    "/budgets/{budgetId}": {
+      "schema": { "$ref": "#/entities/Budget" },
+      "description": "User monthly budgets."
+    },
+    "/partners/{partnerId}": {
+      "schema": { "$ref": "#/entities/Partner" },
+      "description": "User partners."
+    },
+    "/loans/{loanId}": {
+      "schema": { "$ref": "#/entities/Loan" },
+      "description": "User loans."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "User products."
+    },
+    "/stockMovements/{movementId}": {
+      "schema": { "$ref": "#/entities/StockMovement" },
+      "description": "User stock movements."
+    },
+    "/employees/{employeeId}": {
+      "schema": { "$ref": "#/entities/Employee" },
+      "description": "User employees."
+    }
+  }
+}
